@@ -17,6 +17,8 @@ The library itself will manage minimum/maximum poll times.
 Several requests to multiple NTP time servers are fired and the responses will be aggregated.
 
 ```js
+import NtpTimeSync from "ntp-time-sync";
+
 const timeSync = NtpTimeSync.getInstance();
 
 // request 1
