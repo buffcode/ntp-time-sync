@@ -1,0 +1,7 @@
+/.idea
+.npmignore
+.travis.yml
+example.js
+README.md
+yarn.lock
+*.tgz
