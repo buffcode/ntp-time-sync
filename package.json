@@ -4,6 +4,7 @@
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
   "dependencies": {
+    "dgram": "^1.0.1",
     "ntp-packet-parser": "^0.1.0"
   },
   "devDependencies": {
