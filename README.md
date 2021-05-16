@@ -1,5 +1,11 @@
+![NPM downloads](https://img.shields.io/npm/dt/ntp-time-sync.svg)
+[![Build Status](https://github.com/buffcode/ntp-time-sync/actions/workflows/nodejs.yml/badge.svg)](https://github.com/buffcode/ntp-time-sync/actions)
+![NPM version](https://img.shields.io/npm/v/ntp-time-sync)
+
 # ntp-time-sync
-Fetches the current time from NTP servers and returns offset information
+Node.JS module to fetch the current time from NTP servers and returns offset information.
+
+**:information_source: NTP requires UDP which is not available in a browser context!**
 
 ## Installation
 ```bash
