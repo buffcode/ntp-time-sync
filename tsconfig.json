@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "allowJs": true,
+    "lib": [
+      "es2019"
+    ],
+    "target": "es5",
+    "noEmitOnError": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "declaration": true
+  },
+  "include": [
+    "./src/**/*"
+  ]
+}

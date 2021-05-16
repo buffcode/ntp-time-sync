@@ -1,23 +1,22 @@
 {
   "name": "ntp-time-sync",
-  "version": "0.1.0",
+  "version": "0.2.0-beta.0",
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
   "dependencies": {
-    "ntp-packet-parser": "^0.1.0"
+    "ntp-packet-parser": "^0.2.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-preset-es2015": "^6.24.1",
-    "prettier": "^1.6.1"
+    "@types/node": "^15.3.0",
+    "prettier": "^2.3.0",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.4"
   },
   "scripts": {
     "prepublishOnly": "yarn prettier:lint && yarn build",
-    "build": "babel --presets babel-preset-es2015 --out-dir dist src && prettier --write dist/**/*.js",
-    "prettier": "prettier --write src/**/*.js test/**/*.js",
-    "prettier:lint": "prettier --list-different src/**/*.js",
-    "babel": "babel-node"
+    "build": "tsc",
+    "prettier": "prettier --write src/**/*.ts",
+    "prettier:lint": "prettier --list-different src/**/*.ts"
   },
   "keywords": [
     "ntp",
@@ -32,5 +31,14 @@
     "type": "git",
     "url": "https://github.com/buffcode/ntp-time-sync.git"
   },
-  "license": "GPL-3.0"
+  "files": [
+    "dist",
+    "src",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "license": "GPL-3.0",
+  "prettier": {
+    "printWidth": 120
+  }
 }

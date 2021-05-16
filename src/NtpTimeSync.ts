@@ -1,77 +1,139 @@
 "use strict";
 
-/**
- * @typedef {Object} NtpTimeResult
- * @property {Date} now Correct real time
- * @property {Number} offset Offset local to real time in milliseconds
- * @property {Number} precision Precision in milliseconds
- */
+import * as dgram from "dgram";
+import { NtpPacket, NtpPacketParser } from "ntp-packet-parser";
+import { NtpTimeResult } from "./NtpTimeResult";
+import { RecursivePartial } from "./RecursivePartial";
 
-const dgram = require("dgram");
-import NtpPacketParser from "ntp-packet-parser";
-
-let singleton;
-let lastPoll;
-let lastResult;
-
-export default class NtpTimeSync {
-  /**
-   * @param {Object} options
-   */
-  constructor(options = undefined) {
-    const defaultOptions = {
-      // list of NTP time servers, optionally including a port (defaults to options.ntpDefaults.port = 123)
-      servers: [
-        "0.pool.ntp.org",
-        "1.pool.ntp.org",
-        "2.pool.ntp.org",
-        "3.pool.ntp.org"
-      ],
-
-      // required amount of valid samples
-      sampleCount: 8,
-
-      // amount of time in milliseconds to wait for an NTP response
-      replyTimeout: 3000,
-
-      // defaults as of RFC5905
-      ntpDefaults: {
-        port: 123,
-        version: 4,
-        tolerance: 15e-6,
-        minPoll: 4,
-        maxPoll: 17,
-        maxDispersion: 16,
-        minDispersion: 0.005,
-        maxDistance: 1,
-        maxStratum: 16,
-        precision: -18,
-        referenceDate: new Date("Jan 01 1900 GMT")
-      }
+let singleton: NtpTimeSync | undefined;
+let lastPoll: number | undefined;
+let lastResult:
+  | undefined
+  | {
+      offset: number;
+      precision: number;
     };
+
+export interface NtpTimeSyncConstructorOptions {
+  servers: string[];
+  sampleCount: number;
+  replyTimeout: number;
+  ntpDefaults: {
+    port: number;
+    version: number;
+    tolerance: number;
+    minPoll: number;
+    maxPoll: number;
+    maxDispersion: number;
+    minDispersion: number;
+    maxDistance: number;
+    maxStratum: number;
+    precision: number;
+    referenceDate: Date;
+  };
+}
+
+export interface NtpTimeSyncOptions extends Omit<NtpTimeSyncConstructorOptions, "servers"> {
+  servers: ReadonlyArray<{
+    host: string;
+    port: number;
+  }>;
+}
+
+export const NtpTimeSyncDefaultOptions = {
+  // list of NTP time servers, optionally including a port (defaults to options.ntpDefaults.port = 123)
+  servers: ["0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"],
+
+  // required amount of valid samples
+  sampleCount: 8,
+
+  // amount of time in milliseconds to wait for an NTP response
+  replyTimeout: 3000,
+
+  // defaults as of RFC5905
+  ntpDefaults: {
+    port: 123,
+    version: 4,
+    tolerance: 15e-6,
+    minPoll: 4,
+    maxPoll: 17,
+    maxDispersion: 16,
+    minDispersion: 0.005,
+    maxDistance: 1,
+    maxStratum: 16,
+    precision: -18,
+    referenceDate: new Date("Jan 01 1900 GMT"),
+  },
+};
+
+interface NtpReceivedPacket extends Partial<NtpPacket> {
+  destinationTimestamp: Date;
+}
+
+interface SampleData {
+  data: NtpReceivedPacket;
+  offset: number;
+  delay: number;
+  dispersion: number;
+}
+
+export class NtpTimeSync {
+  private options: NtpTimeSyncOptions;
+  private samples: SampleData[] = [];
+
+  constructor(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}) {
+    const serverConfig = options.servers || NtpTimeSyncDefaultOptions.servers;
+
+    const mergedConfig = this.recursiveResolveOptions(
+      options,
+      NtpTimeSyncDefaultOptions
+    ) as NtpTimeSyncConstructorOptions;
 
     this.options = {
-      ...defaultOptions,
-      ...options
+      ...mergedConfig,
+      servers: serverConfig.map((server) => {
+        return {
+          host: server.split(":", 2)[0],
+          port: Number(server.split(":", 2)[1]) || mergedConfig.ntpDefaults.port,
+        };
+      }),
     };
+  }
 
-    // convert servers to internal representation
-    this.options.servers = this.options.servers.map(server => {
-      return {
-        host: server.split(":", 2)[0],
-        port: Number(server.split(":", 2)[1]) || this.options.ntpDefaults.port
-      };
+  private recursiveResolveOptions(
+    options: { [key: string]: any },
+    defaults: { [key: string]: any }
+  ): { [key: string]: any } {
+    const mergedConfig: [string, any][] = Object.entries(defaults).map(([key, value]) => {
+      // option was not defined in input
+      if (!(key in options)) {
+        return [key, value];
+      }
+
+      // option is invalid
+      if (!(key in defaults)) {
+        throw new Error(`Invalid option: ${key}`);
+      }
+
+      if (Array.isArray(options[key])) {
+        return [key, options[key]];
+      }
+
+      const isObject = typeof options[key] === "object" && options[key] !== null;
+      if (isObject) {
+        return [key, this.recursiveResolveOptions(options[key], defaults[key])];
+      }
+
+      return [key, options[key]];
     });
 
-    this.samples = [];
+    return Object.fromEntries(mergedConfig);
   }
 
   /**
    * Returns a singleton
-   * @param {Object} options
-   * @return {NtpTimeSync}
    */
-  static getInstance(options = undefined) {
+  static getInstance(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}): NtpTimeSync {
     if (!singleton) {
       singleton = new NtpTimeSync(options);
     }
@@ -79,16 +141,16 @@ export default class NtpTimeSync {
     return singleton;
   }
 
-  async collectSamples(numSamples) {
-    let ntpResults = [];
+  private async collectSamples(numSamples: number) {
+    let ntpResults: NtpReceivedPacket[] = [];
     let retry = 0;
 
     do {
-      let timePromises = [];
+      let timePromises: Promise<NtpReceivedPacket>[] = [];
 
-      this.options.servers.forEach(server => {
+      this.options.servers.forEach((server) => {
         timePromises.push(
-          this.getNetworkTime(server.host, server.port).then(data => {
+          this.getNetworkTime(server.host, server.port).then((data) => {
             this.acceptResponse(data);
 
             return data;
@@ -98,8 +160,8 @@ export default class NtpTimeSync {
 
       // wait for NTP responses to arrive
       ntpResults = ntpResults
-        .concat(await Promise.all(timePromises.map(p => p.catch(e => e))))
-        .filter(function(result) {
+        .concat(await Promise.all(timePromises.map((p) => p.catch((e) => e))))
+        .filter(function (result) {
           return !(result instanceof Error);
         });
 
@@ -109,30 +171,18 @@ export default class NtpTimeSync {
     } while (ntpResults.length < numSamples && retry < 3);
 
     if (ntpResults.length === 0) {
-      throw new Error(
-        "Connection error: Unable to get any NTP response after " +
-          retry +
-          " retries"
-      );
+      throw new Error("Connection error: Unable to get any NTP response after " + retry + " retries");
     }
 
     // filter erroneous responses, use valid ones as samples
-    let samples = [];
-    ntpResults.forEach(data => {
-      const offsetSign =
-        data.transmitTimestamp.getTime() > data.destinationTimestamp.getTime()
-          ? 1
-          : -1;
+    let samples: SampleData[] = [];
+    ntpResults.forEach((data) => {
+      const offsetSign = data.transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
 
       const offset =
-        (Math.abs(
-          data.receiveTimestamp.getTime() - data.originTimestamp.getTime()
-        ) +
-          Math.abs(
-            data.transmitTimestamp.getTime() -
-              data.destinationTimestamp.getTime()
-          )) /
-        2 *
+        ((Math.abs(data.receiveTimestamp.getTime() - data.originTimestamp.getTime()) +
+          Math.abs(data.transmitTimestamp.getTime() - data.destinationTimestamp.getTime())) /
+          2) *
         offsetSign;
 
       const delay = Math.max(
@@ -145,20 +195,18 @@ export default class NtpTimeSync {
       const dispersion =
         Math.pow(2, data.precision) +
         Math.pow(2, this.options.ntpDefaults.precision) +
-        this.options.ntpDefaults.tolerance *
-          (data.destinationTimestamp.getTime() -
-            data.originTimestamp.getTime());
+        this.options.ntpDefaults.tolerance * (data.destinationTimestamp.getTime() - data.originTimestamp.getTime());
 
       samples.push({
         data: data,
         offset: offset,
         delay: delay,
-        dispersion: dispersion
+        dispersion: dispersion,
       });
     });
 
     // sort samples by ascending delay
-    samples.sort(function(a, b) {
+    samples.sort(function (a, b) {
       return a.delay - b.delay;
     });
 
@@ -167,23 +215,17 @@ export default class NtpTimeSync {
   }
 
   /**
-   * @param {Boolean} force Force NTP update
-   * @return {NtpTimeResult}
+   * @param {boolean} force Force NTP update
    */
-  async getTime(force = false) {
-    if (
-      !force &&
-      lastPoll &&
-      Date.now() - lastPoll <
-        Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
-    ) {
+  async getTime(force = false): Promise<NtpTimeResult> {
+    if (!force && lastPoll && Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000) {
       let date = new Date();
       date.setUTCMilliseconds(date.getUTCMilliseconds() + lastResult.offset);
 
       return {
         now: date,
         offset: lastResult.offset,
-        precision: lastResult.precision
+        precision: lastResult.precision,
       };
     }
 
@@ -196,13 +238,11 @@ export default class NtpTimeSync {
         return acc + item.offset;
       }, 0) / this.samples.length;
 
-    const precision = NtpTimeSync.stdDev(
-      this.samples.map(sample => sample.offset)
-    );
+    const precision = NtpTimeSync.stdDev(this.samples.map((sample) => sample.offset));
 
     lastResult = {
       offset: offset,
-      precision: precision
+      precision: precision,
     };
     lastPoll = Date.now();
 
@@ -212,14 +252,12 @@ export default class NtpTimeSync {
     return {
       now: date,
       offset: offset,
-      precision: precision
+      precision: precision,
     };
   }
 
   /**
    * Will return the correct timestamp when function was called
-   * @param {Boolean} force
-   * @return {Date}
    */
   async now(force = false) {
     const now = new Date();
@@ -229,14 +267,7 @@ export default class NtpTimeSync {
     return now;
   }
 
-  /**
-   * @param {String} string
-   * @param {Integer} length
-   * @param {String} char
-   * @param {String} side
-   * @private
-   */
-  static pad(string, length, char = "0", side = "left") {
+  private static pad(string: string, length: number, char = "0", side: "left" | "right" = "left") {
     if (side === "left") {
       return char.repeat(length).substring(0, length - string.length) + string;
     }
@@ -249,9 +280,8 @@ export default class NtpTimeSync {
    * @param {Integer} ntpVersion, defaults to `options.ntpDefaults.version`
    * @param {Integer} mode, defaults to 3 (client)
    * @return {Buffer}
-   * @private
    */
-  createPacket(leapIndicator = 3, ntpVersion = null, mode = 3) {
+  private createPacket(leapIndicator = 3, ntpVersion: number = null, mode = 3): Buffer {
     ntpVersion = ntpVersion || this.options.ntpDefaults.version;
 
     // generate NTP packet
@@ -268,8 +298,7 @@ export default class NtpTimeSync {
     ntpData[0] = parseInt(ntpData[0], 2);
 
     // origin timestamp
-    const baseTime =
-      new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
+    const baseTime = new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
     const seconds = baseTime / 1000;
     let ntpTimestamp = (seconds * Math.pow(2, 32)).toString(2);
     ntpTimestamp = NtpTimeSync.pad(ntpTimestamp, 64);
@@ -297,12 +326,7 @@ export default class NtpTimeSync {
     return Buffer.from(ntpData);
   }
 
-  /**
-   *
-   * @param client
-   * @private
-   */
-  static cleanup(client) {
+  private static cleanup(client: dgram.Socket) {
     try {
       client.close();
     } catch (e) {
@@ -310,17 +334,12 @@ export default class NtpTimeSync {
     }
   }
 
-  /**
-   * @param {String} server
-   * @param {Integer} port
-   * @return {Promise|NTPPacket}
-   */
-  getNetworkTime(server, port = 123) {
+  getNetworkTime(server: string, port = 123): Promise<NtpReceivedPacket> {
     return new Promise((resolve, reject) => {
       const client = dgram.createSocket("udp4");
       let hasFinished = false;
 
-      const errorCallback = err => {
+      const errorCallback = (err: Error) => {
         if (timeoutHandler) {
           clearTimeout(timeoutHandler);
           timeoutHandler = null;
@@ -336,14 +355,14 @@ export default class NtpTimeSync {
         reject(err);
       };
 
-      client.on("error", err => errorCallback);
+      client.on("error", (err) => errorCallback);
 
       // setup timeout
       let timeoutHandler = setTimeout(() => {
         errorCallback(new Error("Timeout waiting for NTP response."));
       }, this.options.replyTimeout);
 
-      client.send(this.createPacket(), port, server, err => {
+      client.send(this.createPacket(), port, server, (err) => {
         if (hasFinished) {
           return;
         }
@@ -353,7 +372,7 @@ export default class NtpTimeSync {
           return;
         }
 
-        client.once("message", function(msg) {
+        client.once("message", function (msg) {
           if (hasFinished) {
             return;
           }
@@ -362,8 +381,10 @@ export default class NtpTimeSync {
           timeoutHandler = null;
           client.close();
 
-          let result = NtpPacketParser.parse(msg);
-          result.destinationTimestamp = new Date();
+          const result: NtpReceivedPacket = {
+            ...NtpPacketParser.parse(msg),
+            destinationTimestamp: new Date(),
+          };
 
           hasFinished = true;
           resolve(result);
@@ -374,47 +395,29 @@ export default class NtpTimeSync {
 
   /**
    * Test if response is acceptable for synchronization
-   * @param {NTPPacket} data
    */
-  acceptResponse(data) {
+  private acceptResponse(data: Partial<NtpPacket>) {
     /*
      * Format error
      */
     if (data.version > this.options.ntpDefaults.version) {
-      throw new Error(
-        "Format error: Expected version " +
-          this.options.ntpDefaults.version +
-          ", got " +
-          data.version
-      );
+      throw new Error("Format error: Expected version " + this.options.ntpDefaults.version + ", got " + data.version);
     }
 
     /*
      * A stratum error occurs if (1) the server has never been
      * synchronized, (2) the server stratum is invalid.
      */
-    if (
-      data.leapIndicator === 3 ||
-      data.stratum >= this.options.ntpDefaults.maxStratum
-    ) {
+    if (data.leapIndicator === 3 || data.stratum >= this.options.ntpDefaults.maxStratum) {
       throw new Error("Stratum error: Remote clock is unsynchronized");
     }
 
     /*
      * Verify valid root distance.
      */
-    const rootDelay =
-      (data.rootDelay.getTime() -
-        this.options.ntpDefaults.referenceDate.getTime()) /
-      1000;
-    const rootDispersion =
-      (data.rootDispersion.getTime() -
-        this.options.ntpDefaults.referenceDate.getTime()) /
-      1000;
-    if (
-      rootDelay / 2 + rootDispersion >=
-      this.options.ntpDefaults.maxDispersion
-    ) {
+    const rootDelay = (data.rootDelay.getTime() - this.options.ntpDefaults.referenceDate.getTime()) / 1000;
+    const rootDispersion = (data.rootDispersion.getTime() - this.options.ntpDefaults.referenceDate.getTime()) / 1000;
+    if (rootDelay / 2 + rootDispersion >= this.options.ntpDefaults.maxDispersion) {
       throw new Error("Distance error: Root distance too large");
     }
 
@@ -428,12 +431,9 @@ export default class NtpTimeSync {
 
   /**
    * Average for a list of numbers
-   * @param {Array} values
-   * @return {number}
-   * @private
    */
-  static avg(values) {
-    const sum = values.reduce(function(sum, value) {
+  private static avg(values: number[]): number {
+    const sum = values.reduce(function (sum, value) {
       return sum + value;
     }, 0);
 
@@ -442,14 +442,11 @@ export default class NtpTimeSync {
 
   /**
    * Standard deviation for a list of numbers
-   * @param {Array} values
-   * @return {number}
-   * @private
    */
-  static stdDev(values) {
+  private static stdDev(values: number[]): number {
     const avg = this.avg(values);
 
-    const squareDiffs = values.map(function(value) {
+    const squareDiffs = values.map(function (value) {
       const diff = value - avg;
       return diff * diff;
     });
