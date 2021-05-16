@@ -33,9 +33,9 @@ make-error@^1.1.1:
   integrity sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==
 
 ntp-packet-parser@^0.2.0:
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/ntp-packet-parser/-/ntp-packet-parser-0.1.0.tgz#37f5d6b406cba76536b1cb203c591e67ae04bfba"
-  integrity sha512-gacKmXjyp3rsJqo4QOMKPp3MHGPDf0G3aN6CQTgnIXIj9O26vLiDT2mMAWrDl5SRRsk6pikakVFG67agxH87rg==
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/ntp-packet-parser/-/ntp-packet-parser-0.2.0.tgz#6cd015aebc40cb8f9f3a875967e2228283587a27"
+  integrity sha512-UaconpBg4Xl8pSSxs/SpBzsbClsIX+cvFs3QULVvnSjoGejy4MAbIYTuv00i3j9yuhFDz8U20OPyFnxto47+qw==
 
 prettier@^2.3.0:
   version "2.3.0"
