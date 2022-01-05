@@ -40,5 +40,8 @@
   "license": "GPL-3.0",
   "prettier": {
     "printWidth": 120
+  },
+  "engines": {
+    "node": "^12 || ^14 || ^16"
   }
 }
