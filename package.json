@@ -4,7 +4,7 @@
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
   "dependencies": {
-    "ntp-packet-parser": "^0.2.1"
+    "ntp-packet-parser": "^0.3.0"
   },
   "devDependencies": {
     "@types/node": "^15.3.0",
