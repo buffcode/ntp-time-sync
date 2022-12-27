@@ -119,8 +119,7 @@ export class NtpTimeSync {
         return [key, options[key]];
       }
 
-      const isObject = typeof options[key] === "object" && options[key] !== null;
-      if (isObject) {
+      if (NtpTimeSync.isPlainObject(options[key])) {
         return [key, this.recursiveResolveOptions(options[key], defaults[key])];
       }
 
@@ -128,6 +127,11 @@ export class NtpTimeSync {
     });
 
     return Object.fromEntries(mergedConfig);
+  }
+
+  // @see https://quickref.me/check-if-a-value-is-a-plain-object.html
+  private static isPlainObject(v: any): boolean {
+    return !!v && typeof v === "object" && (v.__proto__ === null || v.__proto__ === Object.prototype);
   }
 
   /**
