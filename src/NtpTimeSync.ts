@@ -119,7 +119,7 @@ export class NtpTimeSync {
         return [key, options[key]];
       }
 
-      const isObject = typeof options[key] === "object" && options[key] !== null && options[key] !instanceof Date;
+      const isObject = typeof options[key] === "object" && options[key] !== null && !(options[key] instanceof Date);
       if (isObject) {
         return [key, this.recursiveResolveOptions(options[key], defaults[key])];
       }
