@@ -4,13 +4,13 @@
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
   "dependencies": {
-    "ntp-packet-parser": "^0.4.0"
+    "ntp-packet-parser": "^0.5.0"
   },
   "devDependencies": {
-    "@types/node": "^14 || ^16 || ^18 || ^20",
-    "prettier": "^3.0.2",
-    "ts-node": "^10.4.0",
-    "typescript": "^5.0.2"
+    "@types/node": "^18 || ^20 || ^22",
+    "prettier": "3.5.3",
+    "ts-node": "10.9.2",
+    "typescript": "5.8.3"
   },
   "scripts": {
     "prepublishOnly": "yarn prettier:lint && yarn build",
@@ -43,6 +43,6 @@
     "trailingComma": "es5"
   },
   "engines": {
-    "node": "^14 || ^16 || ^18 || ^20"
+    "node": "^18 || ^20 || ^22"
   }
 }
