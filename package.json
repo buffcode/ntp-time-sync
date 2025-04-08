@@ -1,6 +1,6 @@
 {
   "name": "ntp-time-sync",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
   "dependencies": {
