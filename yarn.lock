@@ -89,10 +89,10 @@ ntp-packet-parser@^0.5.0:
   resolved "https://registry.yarnpkg.com/ntp-packet-parser/-/ntp-packet-parser-0.5.0.tgz#2eb098ec3a3a9f8d5388b066d2fa0d87ddc3a2e1"
   integrity sha512-W18iLyaV17jH4inpvSu2gPep2f1Gs3oABra5NXXzG7MXhLcdHqJrJBO23bTMLkRf4HP9SWHL7FEwwtUf6R1q+g==
 
-prettier@3.7.4:
-  version "3.7.4"
-  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.7.4.tgz#d2f8335d4b1cec47e1c8098645411b0c9dff9c0f"
-  integrity sha512-v6UNi1+3hSlVvv8fSaoUbggEM5VErKmmpGA7Pl3HF8V6uKY7rvClBOJlH6yNwQtfTueNkGVpOv/mtWL9L4bgRA==
+prettier@3.8.0:
+  version "3.8.0"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.8.0.tgz#f72cf71505133f40cfa2ef77a2668cdc558fcd69"
+  integrity sha512-yEPsovQfpxYfgWNhCfECjG5AQaO+K3dp6XERmOepyPDVqcJm+bjyCVO3pmU+nAPe0N5dDvekfGezt/EIiRe1TA==
 
 ts-node@10.9.2:
   version "10.9.2"
