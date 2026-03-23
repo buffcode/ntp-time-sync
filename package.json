@@ -10,7 +10,7 @@
     "@types/node": "^18 || ^20 || ^22",
     "prettier": "3.8.1",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "typescript": "6.0.2"
   },
   "scripts": {
     "prepublishOnly": "yarn prettier:lint && yarn build",
