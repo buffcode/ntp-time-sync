@@ -95,3 +95,19 @@ const defaultOptions = {
   }
 };
 ```
+
+## Deno
+
+`ntp-time-sync` is compatible with Deno. Use the `npm:` specifier to import the package:
+
+```ts
+// Run: deno run --allow-net your-script.ts
+import { NtpTimeSync } from "npm:ntp-time-sync";
+
+const timeSync = NtpTimeSync.getInstance();
+const result = await timeSync.getTime();
+
+console.log("system time", new Date());
+console.log("ntp time", result.now);
+console.log("offset (ms)", result.offset);
+```
