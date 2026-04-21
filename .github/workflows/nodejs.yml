@@ -61,4 +61,4 @@ jobs:
         with:
           deno-version: v2.x
       - name: Run Deno integration test
-        run: deno run test/integration/deno.ts
+        run: deno run --allow-read test/integration/deno.ts
