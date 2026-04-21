@@ -91,10 +91,11 @@ export class NtpTimeSync {
 
     this.options = {
       ...mergedConfig,
-      servers: serverConfig.map((server) => {
+      servers: serverConfig.filter((server): server is string => server !== undefined).map((server) => {
+        const parts = server.split(":", 2);
         return {
-          host: server.split(":", 2)[0],
-          port: Number(server.split(":", 2)[1]) || mergedConfig.ntpDefaults.port,
+          host: parts[0] ?? server,
+          port: Number(parts[1]) || mergedConfig.ntpDefaults.port,
         };
       }),
     };
@@ -181,25 +182,30 @@ export class NtpTimeSync {
     // filter erroneous responses, use valid ones as samples
     let samples: SampleData[] = [];
     ntpResults.forEach((data) => {
-      const offsetSign = data.transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
+      const transmitTimestamp = data.transmitTimestamp!;
+      const receiveTimestamp = data.receiveTimestamp!;
+      const originTimestamp = data.originTimestamp!;
+      const precision = data.precision!;
+
+      const offsetSign = transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
 
       const offset =
-        ((Math.abs(data.receiveTimestamp.getTime() - data.originTimestamp.getTime()) +
-          Math.abs(data.transmitTimestamp.getTime() - data.destinationTimestamp.getTime())) /
+        ((Math.abs(receiveTimestamp.getTime() - originTimestamp.getTime()) +
+          Math.abs(transmitTimestamp.getTime() - data.destinationTimestamp.getTime())) /
           2) *
         offsetSign;
 
       const delay = Math.max(
         data.destinationTimestamp.getTime() -
-          data.originTimestamp.getTime() -
-          (data.receiveTimestamp.getTime() - data.transmitTimestamp.getTime()),
+          originTimestamp.getTime() -
+          (receiveTimestamp.getTime() - transmitTimestamp.getTime()),
         Math.pow(2, this.options.ntpDefaults.precision)
       );
 
       const dispersion =
-        Math.pow(2, data.precision) +
+        Math.pow(2, precision) +
         Math.pow(2, this.options.ntpDefaults.precision) +
-        this.options.ntpDefaults.tolerance * (data.destinationTimestamp.getTime() - data.originTimestamp.getTime());
+        this.options.ntpDefaults.tolerance * (data.destinationTimestamp.getTime() - originTimestamp.getTime());
 
       samples.push({
         data: data,
@@ -222,7 +228,7 @@ export class NtpTimeSync {
    * @param {boolean} force Force NTP update
    */
   async getTime(force = false): Promise<NtpTimeResult> {
-    if (!force && lastPoll && Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000) {
+    if (!force && lastPoll && lastResult && Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000) {
       let date = new Date();
       date.setUTCMilliseconds(date.getUTCMilliseconds() + lastResult.offset);
 
@@ -285,7 +291,7 @@ export class NtpTimeSync {
    * @param {Integer} mode, defaults to 3 (client)
    * @return {Buffer}
    */
-  private createPacket(leapIndicator = 3, ntpVersion: number = null, mode = 3): Buffer {
+  private createPacket(leapIndicator = 3, ntpVersion: number | undefined = undefined, mode = 3): Buffer {
     ntpVersion = ntpVersion || this.options.ntpDefaults.version;
 
     // generate NTP packet
@@ -344,9 +350,9 @@ export class NtpTimeSync {
       let hasFinished = false;
 
       const errorCallback = (err: Error) => {
-        if (timeoutHandler) {
+        if (timeoutHandler !== undefined) {
           clearTimeout(timeoutHandler);
-          timeoutHandler = null;
+          timeoutHandler = undefined;
         }
 
         if (hasFinished) {
@@ -359,14 +365,14 @@ export class NtpTimeSync {
         reject(err);
       };
 
-      client.on("error", (err) => errorCallback);
+      client.on("error", (err: Error) => errorCallback(err));
 
       // setup timeout
-      let timeoutHandler = setTimeout(() => {
+      let timeoutHandler: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         errorCallback(new Error("Timeout waiting for NTP response."));
       }, this.options.replyTimeout);
 
-      client.send(this.createPacket(), port, server, (err) => {
+      client.send(this.createPacket(), port, server, (err: Error | null) => {
         if (hasFinished) {
           return;
         }
@@ -376,13 +382,13 @@ export class NtpTimeSync {
           return;
         }
 
-        client.once("message", function (msg) {
+        client.once("message", function (msg: Buffer) {
           if (hasFinished) {
             return;
           }
 
           clearTimeout(timeoutHandler);
-          timeoutHandler = null;
+          timeoutHandler = undefined;
           client.close();
 
           let parsed: Partial<NtpPacket>;
@@ -413,7 +419,7 @@ export class NtpTimeSync {
     /*
      * Format error
      */
-    if (data.version > this.options.ntpDefaults.version) {
+    if (data.version === undefined || data.version > this.options.ntpDefaults.version) {
       throw new Error("Format error: Expected version " + this.options.ntpDefaults.version + ", got " + data.version);
     }
 
@@ -421,13 +427,16 @@ export class NtpTimeSync {
      * A stratum error occurs if (1) the server has never been
      * synchronized, (2) the server stratum is invalid.
      */
-    if (data.leapIndicator === 3 || data.stratum >= this.options.ntpDefaults.maxStratum) {
+    if (data.leapIndicator === 3 || data.stratum === undefined || data.stratum >= this.options.ntpDefaults.maxStratum) {
       throw new Error("Stratum error: Remote clock is unsynchronized");
     }
 
     /*
      * Verify valid root distance.
      */
+    if (data.rootDelay === undefined || data.rootDispersion === undefined) {
+      throw new Error("Format error: Missing root delay or root dispersion");
+    }
     const rootDelay = (data.rootDelay.getTime() - this.options.ntpDefaults.referenceDate.getTime()) / 1000;
     const rootDispersion = (data.rootDispersion.getTime() - this.options.ntpDefaults.referenceDate.getTime()) / 1000;
     if (rootDelay / 2 + rootDispersion >= this.options.ntpDefaults.maxDispersion) {
@@ -437,7 +446,7 @@ export class NtpTimeSync {
     /*
      * Verify origin timestamp
      */
-    if (data.originTimestamp.getTime() > new Date().getTime()) {
+    if (data.originTimestamp === undefined || data.originTimestamp.getTime() > new Date().getTime()) {
       throw new Error("Format error: Origin timestamp is from the future");
     }
   }

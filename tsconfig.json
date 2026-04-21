@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "./src",
     "allowJs": true,
     "lib": [
       "es2019"
     ],
-    "target": "es5",
+    "target": "es2019",
+    "types": [
+      "node"
+    ],
     "noEmitOnError": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
