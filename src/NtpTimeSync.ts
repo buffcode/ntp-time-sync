@@ -385,8 +385,17 @@ export class NtpTimeSync {
           timeoutHandler = null;
           client.close();
 
+          let parsed: Partial<NtpPacket>;
+          try {
+            parsed = NtpPacketParser.parse(msg);
+          } catch (err) {
+            hasFinished = true;
+            reject(err);
+            return;
+          }
+
           const result: NtpReceivedPacket = {
-            ...NtpPacketParser.parse(msg),
+            ...parsed,
             destinationTimestamp: new Date(),
           };
 
