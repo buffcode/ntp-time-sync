@@ -134,7 +134,9 @@ export class NtpTimeSync {
 
   // @see https://quickref.me/check-if-a-value-is-a-plain-object.html
   private static isPlainObject(v: any): boolean {
-    return !!v && typeof v === "object" && (v.__proto__ === null || v.__proto__ === Object.prototype);
+    if (!v || typeof v !== "object") return false;
+    const proto = Object.getPrototypeOf(v);
+    return proto === null || proto === Object.prototype;
   }
 
   /**
