@@ -91,13 +91,15 @@ export class NtpTimeSync {
 
     this.options = {
       ...mergedConfig,
-      servers: serverConfig.filter((server): server is string => server !== undefined).map((server) => {
-        const parts = server.split(":", 2);
-        return {
-          host: parts[0] ?? server,
-          port: Number(parts[1]) || mergedConfig.ntpDefaults.port,
-        };
-      }),
+      servers: serverConfig
+        .filter((server): server is string => server !== undefined)
+        .map((server) => {
+          const parts = server.split(":", 2);
+          return {
+            host: parts[0] ?? server,
+            port: Number(parts[1]) || mergedConfig.ntpDefaults.port,
+          };
+        }),
     };
   }
 
@@ -228,7 +230,12 @@ export class NtpTimeSync {
    * @param {boolean} force Force NTP update
    */
   async getTime(force = false): Promise<NtpTimeResult> {
-    if (!force && lastPoll && lastResult && Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000) {
+    if (
+      !force &&
+      lastPoll &&
+      lastResult &&
+      Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
+    ) {
       let date = new Date();
       date.setUTCMilliseconds(date.getUTCMilliseconds() + lastResult.offset);
 
