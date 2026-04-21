@@ -3,6 +3,7 @@
   "version": "0.5.0",
   "description": "Fetches the current time from NTP servers and returns offset information",
   "main": "dist/index.js",
+  "type": "commonjs",
   "dependencies": {
     "ntp-packet-parser": "^0.5.0"
   },

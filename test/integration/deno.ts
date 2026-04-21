@@ -1,7 +1,11 @@
 // Deno integration test — verifies ntp-time-sync works without --unstable-unsafe-proto
 // Run: deno run test/integration/deno.ts
 
-import { NtpTimeSync } from "../../dist/index.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { NtpTimeSync } = require("../../dist/index.js");
 
 // Instantiate with nested options to exercise recursiveResolveOptions → isPlainObject
 new NtpTimeSync({
