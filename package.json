@@ -7,7 +7,7 @@
     "ntp-packet-parser": "^0.5.0"
   },
   "devDependencies": {
-    "@types/node": "^18 || ^20 || ^22",
+    "@types/node": "^20 || ^22 || ^24 || ^25",
     "prettier": "3.8.3",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
@@ -43,6 +43,6 @@
     "trailingComma": "es5"
   },
   "engines": {
-    "node": "^18 || ^20 || ^22"
+    "node": "^20 || ^22 || ^24 || ^25"
   }
 }
