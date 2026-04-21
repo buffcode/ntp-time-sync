@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "commonjs",
   "dependencies": {
-    "ntp-packet-parser": "^0.5.0"
+    "ntp-packet-parser": "^0.6.0"
   },
   "devDependencies": {
     "@types/node": "^20 || ^22 || ^24 || ^25",

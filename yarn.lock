@@ -119,10 +119,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ntp-packet-parser@npm:^0.5.0":
-  version: 0.5.0
-  resolution: "ntp-packet-parser@npm:0.5.0"
-  checksum: 10c0/7be22f6ecc7c29ad617ee9a3347f26d2d8169483639091a5d636a2e62767bba80d5a03aa56f80ccafb149482b9166db03440ebbaaad07131e7e7a0a442913166
+"ntp-packet-parser@npm:^0.6.0":
+  version: 0.6.0
+  resolution: "ntp-packet-parser@npm:0.6.0"
+  checksum: 10c0/e88cba6b2dfa26017774a0d1a116cae60b033920736c9c7400ec07dfc3d0713df32156a49e78631d936a8496c53c29bfd9b1226ad306141e2461a9b40a1ad4c8
   languageName: node
   linkType: hard
 
@@ -131,7 +131,7 @@ __metadata:
   resolution: "ntp-time-sync@workspace:."
   dependencies:
     "@types/node": "npm:^20 || ^22 || ^24 || ^25"
-    ntp-packet-parser: "npm:^0.5.0"
+    ntp-packet-parser: "npm:^0.6.0"
     prettier: "npm:3.8.3"
     ts-node: "npm:10.9.2"
     typescript: "npm:6.0.3"
