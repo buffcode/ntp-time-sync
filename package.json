@@ -60,7 +60,7 @@
   "author": "Laurens Stötzel",
   "repository": {
     "type": "git",
-    "url": "https://github.com/buffcode/ntp-time-sync.git"
+    "url": "git+https://github.com/buffcode/ntp-time-sync.git"
   },
   "files": [
     "dist"
