@@ -186,10 +186,20 @@ export class NtpTimeSync {
     // filter erroneous responses, use valid ones as samples
     let samples: SampleData[] = [];
     ntpResults.forEach((data) => {
-      const transmitTimestamp = data.transmitTimestamp!;
-      const receiveTimestamp = data.receiveTimestamp!;
-      const originTimestamp = data.originTimestamp!;
-      const precision = data.precision!;
+      const transmitTimestamp = data.transmitTimestamp;
+      const receiveTimestamp = data.receiveTimestamp;
+      const originTimestamp = data.originTimestamp;
+      const precision = data.precision;
+
+      // acceptResponse has already validated these fields; narrow for the type system
+      if (
+        transmitTimestamp === undefined ||
+        receiveTimestamp === undefined ||
+        originTimestamp === undefined ||
+        precision === undefined
+      ) {
+        return;
+      }
 
       const offsetSign = transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
 
@@ -429,6 +439,19 @@ export class NtpTimeSync {
      */
     if (data.originTimestamp === undefined || data.originTimestamp.getTime() > new Date().getTime()) {
       throw new Error("Format error: Origin timestamp is from the future");
+    }
+
+    /*
+     * Verify remaining fields required for sample computation
+     */
+    if (data.transmitTimestamp === undefined) {
+      throw new Error("Format error: Missing transmit timestamp");
+    }
+    if (data.receiveTimestamp === undefined) {
+      throw new Error("Format error: Missing receive timestamp");
+    }
+    if (data.precision === undefined) {
+      throw new Error("Format error: Missing precision");
     }
   }
 
