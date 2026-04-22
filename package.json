@@ -41,6 +41,7 @@
     "test:integration:esm": "node test/integration/esm.mjs",
     "test:integration:deno": "deno run --allow-read test/integration/deno.ts && deno run --allow-read test/integration/deno-esm.ts",
     "test:integration": "yarn test:integration:cjs && yarn test:integration:esm",
+    "test:unit": "node scripts/run-unit-tests.mjs",
     "prettier": "prettier --write src/**/*.ts",
     "prettier:lint": "prettier --list-different src/**/*.ts",
     "verify:pack": "npm pack --dry-run",
