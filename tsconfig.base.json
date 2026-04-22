@@ -12,7 +12,10 @@
     "noEmitOnError": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
-    "declaration": true
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true
   },
   "include": [
     "./src/**/*"
