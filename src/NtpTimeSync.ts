@@ -333,6 +333,14 @@ export class NtpTimeSync {
 
   private static cleanup(client: dgram.Socket) {
     try {
+      // Drop all listeners first so late-arriving error/message events on an
+      // already-abandoned socket cannot trigger resolve/reject a second time
+      // or keep the event loop alive.
+      client.removeAllListeners();
+    } catch (e) {
+      // ignore, as we just want to cleanup
+    }
+    try {
       client.close();
     } catch (e) {
       // ignore, as we just want to cleanup
@@ -397,16 +405,31 @@ export class NtpTimeSync {
         resolve(result);
       });
 
-      client.send(this.createPacket(), port, server, (err: Error | null) => {
-        if (hasFinished) {
-          return;
-        }
+      try {
+        client.send(this.createPacket(), port, server, (err: Error | null) => {
+          if (hasFinished) {
+            return;
+          }
 
-        if (err) {
-          errorCallback(err);
-          return;
+          if (err) {
+            errorCallback(err);
+            return;
+          }
+        });
+      } catch (err) {
+        // dgram.send can throw synchronously (e.g. when the packet cannot be
+        // constructed or the socket is already in an unusable state) - make
+        // sure we still tear the socket down and reject the pending promise.
+        if (timeoutHandler !== undefined) {
+          clearTimeout(timeoutHandler);
+          timeoutHandler = undefined;
         }
-      });
+        NtpTimeSync.cleanup(client);
+        if (!hasFinished) {
+          hasFinished = true;
+          reject(err);
+        }
+      }
     });
   }
 
