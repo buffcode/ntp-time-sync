@@ -2,8 +2,24 @@
   "name": "ntp-time-sync",
   "version": "0.5.0",
   "description": "Fetches the current time from NTP servers and returns offset information",
-  "main": "dist/index.js",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/cjs/index.d.ts",
   "type": "commonjs",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
   "dependencies": {
     "ntp-packet-parser": "^0.6.0"
   },
@@ -15,7 +31,14 @@
   },
   "scripts": {
     "prepublishOnly": "yarn prettier:lint && yarn build",
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-package-type.mjs cjs",
+    "build:esm": "tsc -p tsconfig.esm.json && node scripts/write-package-type.mjs esm",
+    "build": "yarn build:cjs && yarn build:esm",
+    "test:integration:cjs": "node test/integration/cjs.cjs",
+    "test:integration:esm": "node test/integration/esm.mjs",
+    "test:integration:deno": "deno run --allow-read test/integration/deno.ts && deno run --allow-read test/integration/deno-esm.ts",
+    "test:integration": "yarn test:integration:cjs && yarn test:integration:esm",
     "prettier": "prettier --write src/**/*.ts",
     "prettier:lint": "prettier --list-different src/**/*.ts"
   },
