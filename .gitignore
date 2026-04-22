@@ -60,3 +60,5 @@ typings/
 /dist/
 /.idea/
 yarn.lock
+/.pnp.cjs
+/.yarn/install-state.gz
