@@ -1,2 +1,2 @@
-export * from "./NtpTimeResult";
-export * from "./NtpTimeSync";
+export * from "./NtpTimeResult.js";
+export * from "./NtpTimeSync.js";
