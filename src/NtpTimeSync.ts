@@ -167,6 +167,8 @@ export class NtpTimeSync {
         );
       });
 
+      const prevResultCount = ntpResults.length;
+
       // wait for NTP responses to arrive
       ntpResults = ntpResults
         .concat(await Promise.all(timePromises.map((p) => p.catch((e) => e))))
@@ -174,7 +176,9 @@ export class NtpTimeSync {
           return !(result instanceof Error);
         });
 
-      if (ntpResults.length === 0) {
+      // count a retry whenever a full round produced no new usable samples;
+      // otherwise partial progress could loop forever against a slow server set
+      if (ntpResults.length === prevResultCount) {
         retry++;
       }
     } while (ntpResults.length < numSamples && retry < 3);
