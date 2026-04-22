@@ -286,14 +286,6 @@ export class NtpTimeSync {
     return now;
   }
 
-  private static pad(string: string, length: number, char = "0", side: "left" | "right" = "left") {
-    if (side === "left") {
-      return char.repeat(length).substring(0, length - string.length) + string;
-    }
-
-    return string + char.repeat(length).substring(0, length - string.length);
-  }
-
   /**
    * @param {Integer} leapIndicator, defaults to 3 (unsynchronized)
    * @param {Integer} ntpVersion, defaults to `options.ntpDefaults.version`
@@ -303,46 +295,26 @@ export class NtpTimeSync {
   private createPacket(leapIndicator = 3, ntpVersion: number | undefined = undefined, mode = 3): Buffer {
     ntpVersion = ntpVersion || this.options.ntpDefaults.version;
 
-    // generate NTP packet
-    let ntpData = new Array(48).fill(0);
+    const buf = Buffer.alloc(48);
 
-    ntpData[0] =
-      // Leap indicator (= 3, unsynchronized)
-      NtpTimeSync.pad((leapIndicator >>> 0).toString(2), 2) +
-      // NTP version (= 4)
-      NtpTimeSync.pad((ntpVersion >>> 0).toString(2), 3) +
-      // client mode (= 3)
-      NtpTimeSync.pad((mode >>> 0).toString(2), 3);
+    // Leap indicator (2 bits) | NTP version (3 bits) | mode (3 bits)
+    buf[0] = ((leapIndicator & 0x3) << 6) | ((ntpVersion & 0x7) << 3) | (mode & 0x7);
 
-    ntpData[0] = parseInt(ntpData[0], 2);
-
-    // origin timestamp
-    const baseTime = new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
-    const seconds = baseTime / 1000;
-    let ntpTimestamp = (seconds * Math.pow(2, 32)).toString(2);
-    ntpTimestamp = NtpTimeSync.pad(ntpTimestamp, 64);
+    // origin timestamp: seconds since 1900 epoch in upper 32 bits,
+    // fractional seconds (scaled by 2^32) in lower 32 bits
+    const baseTimeMs = new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
+    const seconds = Math.trunc(baseTimeMs / 1000);
+    const fractional = Math.trunc(((baseTimeMs % 1000) / 1000) * 2 ** 32);
+    const mask32 = BigInt("0xffffffff");
+    const shift32 = BigInt(32);
+    const ntpTimestamp = ((BigInt(seconds) & mask32) << shift32) | (BigInt(fractional) & mask32);
 
     // origin timestamp
-    ntpData[24] = parseInt(ntpTimestamp.substr(0, 8), 2);
-    ntpData[25] = parseInt(ntpTimestamp.substr(8, 8), 2);
-    ntpData[26] = parseInt(ntpTimestamp.substr(16, 8), 2);
-    ntpData[27] = parseInt(ntpTimestamp.substr(24, 8), 2);
-    ntpData[28] = parseInt(ntpTimestamp.substr(32, 8), 2);
-    ntpData[29] = parseInt(ntpTimestamp.substr(40, 8), 2);
-    ntpData[30] = parseInt(ntpTimestamp.substr(48, 8), 2);
-    ntpData[31] = parseInt(ntpTimestamp.substr(56, 8), 2);
-
+    buf.writeBigUInt64BE(ntpTimestamp, 24);
     // transmit timestamp
-    ntpData[40] = parseInt(ntpTimestamp.substr(0, 8), 2);
-    ntpData[41] = parseInt(ntpTimestamp.substr(8, 8), 2);
-    ntpData[42] = parseInt(ntpTimestamp.substr(16, 8), 2);
-    ntpData[43] = parseInt(ntpTimestamp.substr(24, 8), 2);
-    ntpData[44] = parseInt(ntpTimestamp.substr(32, 8), 2);
-    ntpData[45] = parseInt(ntpTimestamp.substr(40, 8), 2);
-    ntpData[46] = parseInt(ntpTimestamp.substr(48, 8), 2);
-    ntpData[47] = parseInt(ntpTimestamp.substr(56, 8), 2);
+    buf.writeBigUInt64BE(ntpTimestamp, 40);
 
-    return Buffer.from(ntpData);
+    return buf;
   }
 
   private static cleanup(client: dgram.Socket) {
