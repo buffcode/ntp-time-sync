@@ -2,8 +2,8 @@
 
 import * as dgram from "dgram";
 import { NtpPacket, NtpPacketParser } from "ntp-packet-parser";
-import { NtpTimeResult } from "./NtpTimeResult";
-import { RecursivePartial } from "./RecursivePartial";
+import { NtpTimeResult } from "./NtpTimeResult.js";
+import { RecursivePartial } from "./RecursivePartial.js";
 
 let singleton: NtpTimeSync | undefined;
 let lastPoll: number | undefined;
