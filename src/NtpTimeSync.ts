@@ -363,6 +363,36 @@ export class NtpTimeSync {
         errorCallback(new Error("Timeout waiting for NTP response."));
       }, this.options.replyTimeout);
 
+      // Register the message listener BEFORE sending the packet so we never
+      // miss an unusually fast reply that arrives between send() completing
+      // and the send callback firing.
+      client.once("message", (msg: Buffer) => {
+        if (hasFinished) {
+          return;
+        }
+
+        clearTimeout(timeoutHandler);
+        timeoutHandler = undefined;
+        client.close();
+
+        let parsed: Partial<NtpPacket>;
+        try {
+          parsed = NtpPacketParser.parse(msg);
+        } catch (err) {
+          hasFinished = true;
+          reject(err);
+          return;
+        }
+
+        const result: NtpReceivedPacket = {
+          ...parsed,
+          destinationTimestamp: new Date(),
+        };
+
+        hasFinished = true;
+        resolve(result);
+      });
+
       client.send(this.createPacket(), port, server, (err: Error | null) => {
         if (hasFinished) {
           return;
@@ -372,33 +402,6 @@ export class NtpTimeSync {
           errorCallback(err);
           return;
         }
-
-        client.once("message", function (msg: Buffer) {
-          if (hasFinished) {
-            return;
-          }
-
-          clearTimeout(timeoutHandler);
-          timeoutHandler = undefined;
-          client.close();
-
-          let parsed: Partial<NtpPacket>;
-          try {
-            parsed = NtpPacketParser.parse(msg);
-          } catch (err) {
-            hasFinished = true;
-            reject(err);
-            return;
-          }
-
-          const result: NtpReceivedPacket = {
-            ...parsed,
-            destinationTimestamp: new Date(),
-          };
-
-          hasFinished = true;
-          resolve(result);
-        });
       });
     });
   }
