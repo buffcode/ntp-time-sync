@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "allowJs": true,
+    "lib": [
+      "es2019"
+    ],
+    "target": "es2019",
+    "types": [
+      "node"
+    ],
+    "noEmitOnError": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "declaration": true
+  },
+  "include": [
+    "./src/**/*"
+  ]
+}
