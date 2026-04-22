@@ -24,7 +24,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-${{ matrix.node-version }}
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-${{ matrix.node-version }}
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-22
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-22
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-${{ matrix.node-version }}-deno
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-${{ matrix.node-version }}-deno
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
