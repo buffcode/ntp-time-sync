@@ -1,11 +1,7 @@
-// Deno integration test — verifies the CJS dist loads under Deno via createRequire.
-// Run: deno run --allow-read test/integration/deno.ts
+// Deno ESM integration test — verifies the ESM dist loads natively under Deno.
+// Run: deno run --allow-read test/integration/deno-esm.ts
 
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { NtpTimeSync } = require("../../dist/cjs/index.js");
+import { NtpTimeSync } from "../../dist/esm/index.js";
 
 // Instantiate with nested options to exercise recursiveResolveOptions → isPlainObject
 new NtpTimeSync({
@@ -24,7 +20,7 @@ if (a !== b) {
 }
 
 // Verify no __proto__ pollution in resolved options
-const opts = a.options;
+const opts = (a as unknown as { options: { ntpDefaults: Record<string, unknown> } }).options;
 if (Object.getPrototypeOf(opts.ntpDefaults) !== Object.prototype) {
   throw new Error("ntpDefaults prototype is not Object.prototype");
 }
@@ -35,6 +31,6 @@ if (Object.prototype.hasOwnProperty.call(opts.ntpDefaults, "__proto__")) {
   throw new Error("ntpDefaults has unexpected __proto__ own property");
 }
 
-console.log("✓ NtpTimeSync imported and instantiated");
+console.log("✓ NtpTimeSync imported (ESM) and instantiated");
 console.log("✓ Nested options merged without __proto__ issues");
 console.log("✓ Singleton pattern works");
