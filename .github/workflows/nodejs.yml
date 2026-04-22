@@ -24,7 +24,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-${{ matrix.node-version }}
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-${{ matrix.node-version }}
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
@@ -36,6 +36,28 @@ jobs:
         run: yarn test:integration:esm
       - name: Run examples
         run: node examples/example.js
+
+  verify-package:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v5
+      - name: Use Node.js 22 (LTS)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          check-latest: true
+      - name: Cache Node.js modules
+        id: yarn-cache
+        uses: actions/cache@v5
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-22
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: yarn install
+      - name: Verify published artifact (pack, publint, attw)
+        run: yarn verify:package
 
   deno:
     runs-on: ubuntu-latest
@@ -54,7 +76,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-${{ matrix.node-version }}-deno
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/package.json') }}-${{ matrix.node-version }}-deno
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install

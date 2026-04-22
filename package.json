@@ -24,8 +24,10 @@
     "ntp-packet-parser": "^0.6.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.2",
     "@types/node": "^20 || ^22 || ^24 || ^25",
     "prettier": "3.8.3",
+    "publint": "0.3.18",
     "ts-node": "10.9.2",
     "typescript": "6.0.3"
   },
@@ -39,8 +41,13 @@
     "test:integration:esm": "node test/integration/esm.mjs",
     "test:integration:deno": "deno run --allow-read test/integration/deno.ts && deno run --allow-read test/integration/deno-esm.ts",
     "test:integration": "yarn test:integration:cjs && yarn test:integration:esm",
+    "test:unit": "node scripts/run-unit-tests.mjs",
     "prettier": "prettier --write src/**/*.ts",
-    "prettier:lint": "prettier --list-different src/**/*.ts"
+    "prettier:lint": "prettier --list-different src/**/*.ts",
+    "verify:pack": "npm pack --dry-run",
+    "verify:publint": "publint",
+    "verify:attw": "attw --pack .",
+    "verify:package": "yarn build && yarn verify:pack && yarn verify:publint && yarn verify:attw"
   },
   "keywords": [
     "ntp",
@@ -53,7 +60,7 @@
   "author": "Laurens Stötzel",
   "repository": {
     "type": "git",
-    "url": "https://github.com/buffcode/ntp-time-sync.git"
+    "url": "git+https://github.com/buffcode/ntp-time-sync.git"
   },
   "files": [
     "dist"

@@ -5,15 +5,6 @@ import { NtpPacket, NtpPacketParser } from "ntp-packet-parser";
 import { NtpTimeResult } from "./NtpTimeResult.js";
 import { RecursivePartial } from "./RecursivePartial.js";
 
-let singleton: NtpTimeSync | undefined;
-let lastPoll: number | undefined;
-let lastResult:
-  | undefined
-  | {
-      offset: number;
-      precision: number;
-    };
-
 export interface NtpTimeSyncConstructorOptions {
   servers: string[];
   sampleCount: number;
@@ -40,7 +31,27 @@ export interface NtpTimeSyncOptions extends Omit<NtpTimeSyncConstructorOptions, 
   }>;
 }
 
-export const NtpTimeSyncDefaultOptions = {
+// Recursively freeze an object tree so consumers cannot mutate shared defaults.
+// Arrays are frozen along with each of their entries.
+const deepFreeze = <T>(value: T): T => {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      deepFreeze(entry);
+    }
+  } else {
+    for (const key of Object.keys(value as object)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+  }
+
+  return Object.freeze(value);
+};
+
+export const NtpTimeSyncDefaultOptions = deepFreeze({
   // list of NTP time servers, optionally including a port (defaults to options.ntpDefaults.port = 123)
   servers: ["0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"],
 
@@ -64,7 +75,7 @@ export const NtpTimeSyncDefaultOptions = {
     precision: -18,
     referenceDate: new Date("Jan 01 1900 GMT"),
   },
-};
+});
 
 interface NtpReceivedPacket extends Partial<NtpPacket> {
   destinationTimestamp: Date;
@@ -78,8 +89,17 @@ interface SampleData {
 }
 
 export class NtpTimeSync {
+  private static singleton: NtpTimeSync | undefined;
+
   private options: NtpTimeSyncOptions;
   private samples: SampleData[] = [];
+  private lastPoll: number | undefined;
+  private lastResult:
+    | undefined
+    | {
+        offset: number;
+        precision: number;
+      };
 
   constructor(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}) {
     const serverConfig = options.servers || NtpTimeSyncDefaultOptions.servers;
@@ -143,11 +163,11 @@ export class NtpTimeSync {
    * Returns a singleton
    */
   static getInstance(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}): NtpTimeSync {
-    if (!singleton) {
-      singleton = new NtpTimeSync(options);
+    if (!NtpTimeSync.singleton) {
+      NtpTimeSync.singleton = new NtpTimeSync(options);
     }
 
-    return singleton;
+    return NtpTimeSync.singleton;
   }
 
   private async collectSamples(numSamples: number) {
@@ -167,6 +187,8 @@ export class NtpTimeSync {
         );
       });
 
+      const prevResultCount = ntpResults.length;
+
       // wait for NTP responses to arrive
       ntpResults = ntpResults
         .concat(await Promise.all(timePromises.map((p) => p.catch((e) => e))))
@@ -174,7 +196,9 @@ export class NtpTimeSync {
           return !(result instanceof Error);
         });
 
-      if (ntpResults.length === 0) {
+      // count a retry whenever a full round produced no new usable samples;
+      // otherwise partial progress could loop forever against a slow server set
+      if (ntpResults.length === prevResultCount) {
         retry++;
       }
     } while (ntpResults.length < numSamples && retry < 3);
@@ -186,10 +210,20 @@ export class NtpTimeSync {
     // filter erroneous responses, use valid ones as samples
     let samples: SampleData[] = [];
     ntpResults.forEach((data) => {
-      const transmitTimestamp = data.transmitTimestamp!;
-      const receiveTimestamp = data.receiveTimestamp!;
-      const originTimestamp = data.originTimestamp!;
-      const precision = data.precision!;
+      const transmitTimestamp = data.transmitTimestamp;
+      const receiveTimestamp = data.receiveTimestamp;
+      const originTimestamp = data.originTimestamp;
+      const precision = data.precision;
+
+      // acceptResponse has already validated these fields; narrow for the type system
+      if (
+        transmitTimestamp === undefined ||
+        receiveTimestamp === undefined ||
+        originTimestamp === undefined ||
+        precision === undefined
+      ) {
+        return;
+      }
 
       const offsetSign = transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
 
@@ -234,17 +268,17 @@ export class NtpTimeSync {
   async getTime(force = false): Promise<NtpTimeResult> {
     if (
       !force &&
-      lastPoll &&
-      lastResult &&
-      Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
+      this.lastPoll &&
+      this.lastResult &&
+      Date.now() - this.lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
     ) {
       let date = new Date();
-      date.setUTCMilliseconds(date.getUTCMilliseconds() + lastResult.offset);
+      date.setUTCMilliseconds(date.getUTCMilliseconds() + this.lastResult.offset);
 
       return {
         now: date,
-        offset: lastResult.offset,
-        precision: lastResult.precision,
+        offset: this.lastResult.offset,
+        precision: this.lastResult.precision,
       };
     }
 
@@ -259,11 +293,11 @@ export class NtpTimeSync {
 
     const precision = NtpTimeSync.stdDev(this.samples.map((sample) => sample.offset));
 
-    lastResult = {
+    this.lastResult = {
       offset: offset,
       precision: precision,
     };
-    lastPoll = Date.now();
+    this.lastPoll = Date.now();
 
     let date = new Date();
     date.setUTCMilliseconds(date.getUTCMilliseconds() + offset);
@@ -286,14 +320,6 @@ export class NtpTimeSync {
     return now;
   }
 
-  private static pad(string: string, length: number, char = "0", side: "left" | "right" = "left") {
-    if (side === "left") {
-      return char.repeat(length).substring(0, length - string.length) + string;
-    }
-
-    return string + char.repeat(length).substring(0, length - string.length);
-  }
-
   /**
    * @param {Integer} leapIndicator, defaults to 3 (unsynchronized)
    * @param {Integer} ntpVersion, defaults to `options.ntpDefaults.version`
@@ -303,49 +329,37 @@ export class NtpTimeSync {
   private createPacket(leapIndicator = 3, ntpVersion: number | undefined = undefined, mode = 3): Buffer {
     ntpVersion = ntpVersion || this.options.ntpDefaults.version;
 
-    // generate NTP packet
-    let ntpData = new Array(48).fill(0);
+    const buf = Buffer.alloc(48);
 
-    ntpData[0] =
-      // Leap indicator (= 3, unsynchronized)
-      NtpTimeSync.pad((leapIndicator >>> 0).toString(2), 2) +
-      // NTP version (= 4)
-      NtpTimeSync.pad((ntpVersion >>> 0).toString(2), 3) +
-      // client mode (= 3)
-      NtpTimeSync.pad((mode >>> 0).toString(2), 3);
+    // Leap indicator (2 bits) | NTP version (3 bits) | mode (3 bits)
+    buf[0] = ((leapIndicator & 0x3) << 6) | ((ntpVersion & 0x7) << 3) | (mode & 0x7);
 
-    ntpData[0] = parseInt(ntpData[0], 2);
-
-    // origin timestamp
-    const baseTime = new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
-    const seconds = baseTime / 1000;
-    let ntpTimestamp = (seconds * Math.pow(2, 32)).toString(2);
-    ntpTimestamp = NtpTimeSync.pad(ntpTimestamp, 64);
+    // origin timestamp: seconds since 1900 epoch in upper 32 bits,
+    // fractional seconds (scaled by 2^32) in lower 32 bits
+    const baseTimeMs = new Date().getTime() - this.options.ntpDefaults.referenceDate.getTime();
+    const seconds = Math.trunc(baseTimeMs / 1000);
+    const fractional = Math.trunc(((baseTimeMs % 1000) / 1000) * 2 ** 32);
+    const mask32 = BigInt("0xffffffff");
+    const shift32 = BigInt(32);
+    const ntpTimestamp = ((BigInt(seconds) & mask32) << shift32) | (BigInt(fractional) & mask32);
 
     // origin timestamp
-    ntpData[24] = parseInt(ntpTimestamp.substr(0, 8), 2);
-    ntpData[25] = parseInt(ntpTimestamp.substr(8, 8), 2);
-    ntpData[26] = parseInt(ntpTimestamp.substr(16, 8), 2);
-    ntpData[27] = parseInt(ntpTimestamp.substr(24, 8), 2);
-    ntpData[28] = parseInt(ntpTimestamp.substr(32, 8), 2);
-    ntpData[29] = parseInt(ntpTimestamp.substr(40, 8), 2);
-    ntpData[30] = parseInt(ntpTimestamp.substr(48, 8), 2);
-    ntpData[31] = parseInt(ntpTimestamp.substr(56, 8), 2);
-
+    buf.writeBigUInt64BE(ntpTimestamp, 24);
     // transmit timestamp
-    ntpData[40] = parseInt(ntpTimestamp.substr(0, 8), 2);
-    ntpData[41] = parseInt(ntpTimestamp.substr(8, 8), 2);
-    ntpData[42] = parseInt(ntpTimestamp.substr(16, 8), 2);
-    ntpData[43] = parseInt(ntpTimestamp.substr(24, 8), 2);
-    ntpData[44] = parseInt(ntpTimestamp.substr(32, 8), 2);
-    ntpData[45] = parseInt(ntpTimestamp.substr(40, 8), 2);
-    ntpData[46] = parseInt(ntpTimestamp.substr(48, 8), 2);
-    ntpData[47] = parseInt(ntpTimestamp.substr(56, 8), 2);
+    buf.writeBigUInt64BE(ntpTimestamp, 40);
 
-    return Buffer.from(ntpData);
+    return buf;
   }
 
   private static cleanup(client: dgram.Socket) {
+    try {
+      // Drop all listeners first so late-arriving error/message events on an
+      // already-abandoned socket cannot trigger resolve/reject a second time
+      // or keep the event loop alive.
+      client.removeAllListeners();
+    } catch (e) {
+      // ignore, as we just want to cleanup
+    }
     try {
       client.close();
     } catch (e) {
@@ -381,43 +395,61 @@ export class NtpTimeSync {
         errorCallback(new Error("Timeout waiting for NTP response."));
       }, this.options.replyTimeout);
 
-      client.send(this.createPacket(), port, server, (err: Error | null) => {
+      // Register the message listener BEFORE sending the packet so we never
+      // miss an unusually fast reply that arrives between send() completing
+      // and the send callback firing.
+      client.once("message", (msg: Buffer) => {
         if (hasFinished) {
           return;
         }
 
-        if (err) {
-          errorCallback(err);
+        clearTimeout(timeoutHandler);
+        timeoutHandler = undefined;
+        client.close();
+
+        let parsed: Partial<NtpPacket>;
+        try {
+          parsed = NtpPacketParser.parse(msg);
+        } catch (err) {
+          hasFinished = true;
+          reject(err);
           return;
         }
 
-        client.once("message", function (msg: Buffer) {
+        const result: NtpReceivedPacket = {
+          ...parsed,
+          destinationTimestamp: new Date(),
+        };
+
+        hasFinished = true;
+        resolve(result);
+      });
+
+      try {
+        client.send(this.createPacket(), port, server, (err: Error | null) => {
           if (hasFinished) {
             return;
           }
 
-          clearTimeout(timeoutHandler);
-          timeoutHandler = undefined;
-          client.close();
-
-          let parsed: Partial<NtpPacket>;
-          try {
-            parsed = NtpPacketParser.parse(msg);
-          } catch (err) {
-            hasFinished = true;
-            reject(err);
+          if (err) {
+            errorCallback(err);
             return;
           }
-
-          const result: NtpReceivedPacket = {
-            ...parsed,
-            destinationTimestamp: new Date(),
-          };
-
-          hasFinished = true;
-          resolve(result);
         });
-      });
+      } catch (err) {
+        // dgram.send can throw synchronously (e.g. when the packet cannot be
+        // constructed or the socket is already in an unusable state) - make
+        // sure we still tear the socket down and reject the pending promise.
+        if (timeoutHandler !== undefined) {
+          clearTimeout(timeoutHandler);
+          timeoutHandler = undefined;
+        }
+        NtpTimeSync.cleanup(client);
+        if (!hasFinished) {
+          hasFinished = true;
+          reject(err);
+        }
+      }
     });
   }
 
@@ -457,6 +489,19 @@ export class NtpTimeSync {
      */
     if (data.originTimestamp === undefined || data.originTimestamp.getTime() > new Date().getTime()) {
       throw new Error("Format error: Origin timestamp is from the future");
+    }
+
+    /*
+     * Verify remaining fields required for sample computation
+     */
+    if (data.transmitTimestamp === undefined) {
+      throw new Error("Format error: Missing transmit timestamp");
+    }
+    if (data.receiveTimestamp === undefined) {
+      throw new Error("Format error: Missing receive timestamp");
+    }
+    if (data.precision === undefined) {
+      throw new Error("Format error: Missing precision");
     }
   }
 
