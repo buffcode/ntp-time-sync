@@ -1,8 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "module": "es2022",
+    "module": "commonjs",
     "moduleResolution": "bundler",
-    "outDir": "./dist/esm"
+    "outDir": "./dist/cjs"
   }
 }
