@@ -28,8 +28,12 @@ jobs:
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
-      - name: Build
+      - name: Build (dual CJS + ESM)
         run: yarn build
+      - name: Run CJS integration test
+        run: yarn test:integration:cjs
+      - name: Run ESM integration test
+        run: yarn test:integration:esm
       - name: Run examples
         run: node examples/example.js
 
@@ -54,11 +58,13 @@ jobs:
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install
-      - name: Build
+      - name: Build (dual CJS + ESM)
         run: yarn build
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Run Deno integration test
+      - name: Run Deno CJS integration test
         run: deno run --allow-read test/integration/deno.ts
+      - name: Run Deno ESM integration test
+        run: deno run --allow-read test/integration/deno-esm.ts
