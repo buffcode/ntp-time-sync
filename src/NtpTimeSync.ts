@@ -31,7 +31,27 @@ export interface NtpTimeSyncOptions extends Omit<NtpTimeSyncConstructorOptions, 
   }>;
 }
 
-export const NtpTimeSyncDefaultOptions = {
+// Recursively freeze an object tree so consumers cannot mutate shared defaults.
+// Arrays are frozen along with each of their entries.
+const deepFreeze = <T>(value: T): T => {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      deepFreeze(entry);
+    }
+  } else {
+    for (const key of Object.keys(value as object)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+  }
+
+  return Object.freeze(value);
+};
+
+export const NtpTimeSyncDefaultOptions = deepFreeze({
   // list of NTP time servers, optionally including a port (defaults to options.ntpDefaults.port = 123)
   servers: ["0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org"],
 
@@ -55,7 +75,7 @@ export const NtpTimeSyncDefaultOptions = {
     precision: -18,
     referenceDate: new Date("Jan 01 1900 GMT"),
   },
-};
+});
 
 interface NtpReceivedPacket extends Partial<NtpPacket> {
   destinationTimestamp: Date;
