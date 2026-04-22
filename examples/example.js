@@ -1,4 +1,4 @@
-const NtpTimeSync = require("../dist/index").NtpTimeSync;
+const NtpTimeSync = require("../dist/cjs/index").NtpTimeSync;
 
 (async function() {
   const ntpInstance1 = NtpTimeSync.getInstance();
