@@ -5,15 +5,6 @@ import { NtpPacket, NtpPacketParser } from "ntp-packet-parser";
 import { NtpTimeResult } from "./NtpTimeResult.js";
 import { RecursivePartial } from "./RecursivePartial.js";
 
-let singleton: NtpTimeSync | undefined;
-let lastPoll: number | undefined;
-let lastResult:
-  | undefined
-  | {
-      offset: number;
-      precision: number;
-    };
-
 export interface NtpTimeSyncConstructorOptions {
   servers: string[];
   sampleCount: number;
@@ -78,8 +69,17 @@ interface SampleData {
 }
 
 export class NtpTimeSync {
+  private static singleton: NtpTimeSync | undefined;
+
   private options: NtpTimeSyncOptions;
   private samples: SampleData[] = [];
+  private lastPoll: number | undefined;
+  private lastResult:
+    | undefined
+    | {
+        offset: number;
+        precision: number;
+      };
 
   constructor(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}) {
     const serverConfig = options.servers || NtpTimeSyncDefaultOptions.servers;
@@ -143,11 +143,11 @@ export class NtpTimeSync {
    * Returns a singleton
    */
   static getInstance(options: RecursivePartial<NtpTimeSyncConstructorOptions> = {}): NtpTimeSync {
-    if (!singleton) {
-      singleton = new NtpTimeSync(options);
+    if (!NtpTimeSync.singleton) {
+      NtpTimeSync.singleton = new NtpTimeSync(options);
     }
 
-    return singleton;
+    return NtpTimeSync.singleton;
   }
 
   private async collectSamples(numSamples: number) {
@@ -234,17 +234,17 @@ export class NtpTimeSync {
   async getTime(force = false): Promise<NtpTimeResult> {
     if (
       !force &&
-      lastPoll &&
-      lastResult &&
-      Date.now() - lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
+      this.lastPoll &&
+      this.lastResult &&
+      Date.now() - this.lastPoll < Math.pow(2, this.options.ntpDefaults.minPoll) * 1000
     ) {
       let date = new Date();
-      date.setUTCMilliseconds(date.getUTCMilliseconds() + lastResult.offset);
+      date.setUTCMilliseconds(date.getUTCMilliseconds() + this.lastResult.offset);
 
       return {
         now: date,
-        offset: lastResult.offset,
-        precision: lastResult.precision,
+        offset: this.lastResult.offset,
+        precision: this.lastResult.precision,
       };
     }
 
@@ -259,11 +259,11 @@ export class NtpTimeSync {
 
     const precision = NtpTimeSync.stdDev(this.samples.map((sample) => sample.offset));
 
-    lastResult = {
+    this.lastResult = {
       offset: offset,
       precision: precision,
     };
-    lastPoll = Date.now();
+    this.lastPoll = Date.now();
 
     let date = new Date();
     date.setUTCMilliseconds(date.getUTCMilliseconds() + offset);
