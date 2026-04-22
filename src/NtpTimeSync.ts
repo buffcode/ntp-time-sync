@@ -1,6 +1,6 @@
 "use strict";
 
-import * as dgram from "dgram";
+import * as dgram from "node:dgram";
 import { NtpPacket, NtpPacketParser } from "ntp-packet-parser";
 import { NtpTimeResult } from "./NtpTimeResult.js";
 import { RecursivePartial } from "./RecursivePartial.js";
