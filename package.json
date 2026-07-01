@@ -24,7 +24,7 @@
     "ntp-packet-parser": "^0.6.1"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "0.18.2",
+    "@arethetypeswrong/cli": "0.18.4",
     "@types/node": "^20 || ^22 || ^24 || ^25",
     "prettier": "3.9.3",
     "publint": "0.3.18",
@@ -46,7 +46,7 @@
     "prettier:lint": "prettier --list-different src/**/*.ts",
     "verify:pack": "npm pack --dry-run",
     "verify:publint": "publint",
-    "verify:attw": "npm pack && attw ntp-time-sync-*.tgz; code=$?; rm -f ntp-time-sync-*.tgz; exit $code",
+    "verify:attw": "attw --pack .",
     "verify:package": "yarn build && yarn verify:pack && yarn verify:publint && yarn verify:attw"
   },
   "keywords": [
