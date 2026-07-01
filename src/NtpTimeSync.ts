@@ -113,13 +113,7 @@ export class NtpTimeSync {
       ...mergedConfig,
       servers: serverConfig
         .filter((server): server is string => server !== undefined)
-        .map((server) => {
-          const parts = server.split(":", 2);
-          return {
-            host: parts[0] ?? server,
-            port: Number(parts[1]) || mergedConfig.ntpDefaults.port,
-          };
-        }),
+        .map((server) => NtpTimeSync.parseServer(server, mergedConfig.ntpDefaults.port)),
     };
   }
 
@@ -127,22 +121,28 @@ export class NtpTimeSync {
     options: { [key: string]: any },
     defaults: { [key: string]: any }
   ): { [key: string]: any } {
-    const mergedConfig: [string, any][] = Object.entries(defaults).map(([key, value]) => {
-      // option was not defined in input
-      if (!(key in options)) {
-        return [key, value];
-      }
-
-      // option is invalid
+    // Reject unknown options. The check has to iterate over the *input* keys
+    // (not the defaults) to be meaningful: every key the caller supplies must
+    // have a matching default, otherwise it is a typo or an unsupported option.
+    for (const key of Object.keys(options)) {
       if (!(key in defaults)) {
         throw new Error(`Invalid option: ${key}`);
+      }
+    }
+
+    const mergedConfig: [string, any][] = Object.entries(defaults).map(([key, value]) => {
+      // option was not overridden in input
+      if (!(key in options)) {
+        return [key, value];
       }
 
       if (Array.isArray(options[key])) {
         return [key, options[key]];
       }
 
-      if (NtpTimeSync.isPlainObject(options[key])) {
+      // only recurse when both sides are plain objects; otherwise the input
+      // value replaces the default wholesale
+      if (NtpTimeSync.isPlainObject(options[key]) && NtpTimeSync.isPlainObject(defaults[key])) {
         return [key, this.recursiveResolveOptions(options[key], defaults[key])];
       }
 
@@ -157,6 +157,44 @@ export class NtpTimeSync {
     if (!v || typeof v !== "object") return false;
     const proto = Object.getPrototypeOf(v);
     return proto === null || proto === Object.prototype;
+  }
+
+  /**
+   * Parse a server entry into a host/port pair. Supports:
+   *   - "host" / "1.2.3.4"                    → default port
+   *   - "host:123" / "1.2.3.4:123"            → explicit port
+   *   - "[2001:db8::1]" / "[2001:db8::1]:123" → bracketed IPv6, optional port
+   *   - "2001:db8::1" / "::1"                 → bare IPv6 literal, default port
+   * A bare (unbracketed) IPv6 literal cannot carry a port because the colons
+   * are ambiguous, so the default port is always used for it.
+   */
+  private static parseServer(server: string, defaultPort: number): { host: string; port: number } {
+    const resolvePort = (raw: string): number => {
+      const port = Number(raw);
+      return Number.isInteger(port) && port > 0 && port <= 65535 ? port : defaultPort;
+    };
+
+    // Bracketed IPv6, e.g. "[::1]" or "[::1]:123"
+    if (server.startsWith("[")) {
+      const end = server.indexOf("]");
+      if (end !== -1) {
+        const host = server.slice(1, end);
+        const rest = server.slice(end + 1); // "" or ":<port>"
+        return { host, port: rest.startsWith(":") ? resolvePort(rest.slice(1)) : defaultPort };
+      }
+    }
+
+    // Bare IPv6 literal (more than one colon, no brackets): no port possible.
+    if (server.indexOf(":") !== server.lastIndexOf(":")) {
+      return { host: server, port: defaultPort };
+    }
+
+    // Hostname or IPv4, with an optional ":<port>".
+    const idx = server.indexOf(":");
+    if (idx === -1) {
+      return { host: server, port: defaultPort };
+    }
+    return { host: server.slice(0, idx) || server, port: resolvePort(server.slice(idx + 1)) };
   }
 
   /**
@@ -225,13 +263,19 @@ export class NtpTimeSync {
         return;
       }
 
-      const offsetSign = transmitTimestamp.getTime() > data.destinationTimestamp.getTime() ? 1 : -1;
-
+      // Clock offset per RFC 5905 §8: theta = ((T2 - T1) + (T3 - T4)) / 2
+      //   T1 = originTimestamp      (client transmit, echoed by server)
+      //   T2 = receiveTimestamp     (server receive)
+      //   T3 = transmitTimestamp    (server transmit)
+      //   T4 = destinationTimestamp (client receive)
+      // The signed differences carry the correct direction on their own; the
+      // previous abs()+heuristic-sign form produced the wrong result whenever
+      // the inbound and outbound legs disagreed in sign.
       const offset =
-        ((Math.abs(receiveTimestamp.getTime() - originTimestamp.getTime()) +
-          Math.abs(transmitTimestamp.getTime() - data.destinationTimestamp.getTime())) /
-          2) *
-        offsetSign;
+        (receiveTimestamp.getTime() -
+          originTimestamp.getTime() +
+          (transmitTimestamp.getTime() - data.destinationTimestamp.getTime())) /
+        2;
 
       const delay = Math.max(
         data.destinationTimestamp.getTime() -

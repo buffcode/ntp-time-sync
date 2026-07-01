@@ -89,6 +89,38 @@ test("getTime caches result across invocations within minPoll window", async () 
   }
 });
 
+test("offset uses the signed RFC5905 formula, not an abs()+sign heuristic", async () => {
+  // Construct an asymmetric response where the inbound leg (T2 - T1) and the
+  // outbound leg (T3 - T4) disagree in sign. The signed formula
+  //   theta = ((T2 - T1) + (T3 - T4)) / 2
+  // yields a small positive offset (~+250ms), whereas the old
+  //   ((|T2 - T1| + |T3 - T4|) / 2) * sign(T3 > T4)
+  // form produced a large *negative* value (~-750ms). Asserting a positive,
+  // bounded offset therefore fails against the old math and passes the new.
+  const server = await startFakeNtpServer(() => {
+    const s = Date.now();
+    return buildNtpResponse({
+      originTimestamp: new Date(s - 500), // T1
+      receiveTimestamp: new Date(s + 500), // T2  → T2 - T1 = +1000
+      transmitTimestamp: new Date(s - 500), // T3  → T3 - T4 ≈ -500
+    });
+  });
+  try {
+    const sync = new NtpTimeSync({
+      servers: [`127.0.0.1:${server.port}`],
+      sampleCount: 1,
+      replyTimeout: 500,
+    });
+    const result = await sync.getTime(true);
+    assert.ok(
+      result.offset > 100 && result.offset < 450,
+      `expected ~+250ms signed offset, got ${result.offset}`
+    );
+  } finally {
+    await server.close();
+  }
+});
+
 test("getTime with 3 samples averages offsets across responses", async () => {
   // Three back-to-back identical responses must produce a stable offset.
   const server = await startFakeNtpServer(() => buildNtpResponse());
