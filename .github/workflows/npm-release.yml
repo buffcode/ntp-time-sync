@@ -1,21 +1,31 @@
-name: Node.js Package
+name: Publish NPM package
 
 on:
   workflow_dispatch:
   release:
-    types: [released]
+    types: [released, prereleased]
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - run: yarn install
-      - run: yarn build
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Prerelease detected ($VERSION) -> publishing with --tag next"
+            npm publish --tag next
+          else
+            echo "Stable release ($VERSION) -> publishing with default tag (latest)"
+            npm publish
+          fi
