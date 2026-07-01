@@ -46,7 +46,7 @@
     "prettier:lint": "prettier --list-different src/**/*.ts",
     "verify:pack": "npm pack --dry-run",
     "verify:publint": "publint",
-    "verify:attw": "attw --pack .",
+    "verify:attw": "npm pack && attw ntp-time-sync-*.tgz; code=$?; rm -f ntp-time-sync-*.tgz; exit $code",
     "verify:package": "yarn build && yarn verify:pack && yarn verify:publint && yarn verify:attw"
   },
   "keywords": [
