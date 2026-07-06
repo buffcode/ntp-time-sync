@@ -27,7 +27,7 @@
     "@arethetypeswrong/cli": "0.18.4",
     "@types/node": "^20 || ^22 || ^24 || ^25",
     "prettier": "3.9.3",
-    "publint": "0.3.18",
+    "publint": "0.3.21",
     "ts-node": "10.9.2",
     "typescript": "6.0.3"
   },
