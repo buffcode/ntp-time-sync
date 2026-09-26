@@ -7,6 +7,9 @@ Node.JS module to fetch the current time from NTP servers and returns offset inf
 
 **:information_source: NTP requires UDP which is not available in a browser context!**
 
+## Requirements
+Node.js 22, 24 or 26.
+
 ## Installation
 ```bash
 # using Yarn

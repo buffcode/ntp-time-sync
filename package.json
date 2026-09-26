@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@types/node": "^20 || ^22 || ^24 || ^25",
+    "@types/node": "^22 || ^24 || ^26",
     "prettier": "3.9.8",
     "publint": "0.3.24",
     "typescript": "7.0.2"
@@ -70,7 +70,7 @@
     "trailingComma": "es5"
   },
   "engines": {
-    "node": "^20 || ^22 || ^24 || ^25"
+    "node": "^22 || ^24 || ^26"
   },
   "devEngines": {
     "packageManager": {

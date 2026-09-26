@@ -10,10 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  # Dependencies are installed once with npm 12 (which enforces the .npmrc
-  # policy: release-age cooldown, blocked install scripts). npm 12 does not run
-  # on every Node version we support at runtime, so the test matrix consumes
-  # the build output instead of installing on its own.
+  # Dependencies are installed and built once with npm 12 (which enforces the
+  # .npmrc policy: release-age cooldown, blocked install scripts). The runtime
+  # test matrix and the Deno job consume that build output instead of
+  # installing on their own.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +48,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        node-version: ['20', '22', '24', '25']
+        node-version: ['22', '24', '26']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Use Node.js ${{ matrix.node-version }}
