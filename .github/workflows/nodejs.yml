@@ -21,9 +21,9 @@ jobs:
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
+          package-manager-cache: false
           node-version: '24'
           check-latest: true
-          cache: npm
       - name: Install npm 12
         run: npm install -g npm@12.0.2
       - name: Install dependencies
@@ -54,6 +54,7 @@ jobs:
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
+          package-manager-cache: false
           node-version: ${{ matrix.node-version }}
           check-latest: true
       - name: Download build output
@@ -75,9 +76,9 @@ jobs:
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
+          package-manager-cache: false
           node-version: '24'
           check-latest: true
-          cache: npm
       - name: Install npm 12
         run: npm install -g npm@12.0.2
       - name: Install dependencies
