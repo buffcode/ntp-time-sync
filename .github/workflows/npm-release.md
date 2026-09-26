@@ -16,3 +16,5 @@
     - Choose the tag from step 1/2
     - Title is `v{version}`
     - Give some description on what changed
+
+5. [Approve the `npm-publish` deployment](https://github.com/buffcode/ntp-time-sync/actions) of the publish workflow
