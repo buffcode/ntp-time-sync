@@ -58,6 +58,7 @@ typings/
 .env
 
 /dist/
+/.test-build/
 /.idea/
 yarn.lock
 /.pnp.cjs

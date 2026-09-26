@@ -30,6 +30,8 @@ jobs:
         run: yarn install
       - name: Build (dual CJS + ESM)
         run: yarn build
+      - name: Run unit tests
+        run: yarn test:unit
       - name: Run CJS integration test
         run: yarn test:integration:cjs
       - name: Run ESM integration test
