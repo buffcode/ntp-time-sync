@@ -2,7 +2,7 @@
 
 1. Bump version:
     ```bash
-    yarn version --patch
+    npm version patch
     ```
 
 2. Push changes and tags:
