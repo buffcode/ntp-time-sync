@@ -13,12 +13,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '24'
+          check-latest: true
           registry-url: 'https://registry.npmjs.org'
-      - run: yarn install
+      - name: Install npm 12
+        run: npm install -g npm@12.0.2
+      - name: Install dependencies
+        run: npm ci
       - name: Publish to npm
         run: |
           VERSION=$(node -p "require('./package.json').version")
