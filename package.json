@@ -25,28 +25,28 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@types/node": "^20 || ^22 || ^24 || ^25",
-    "prettier": "3.9.9",
+    "@types/node": "^22 || ^24 || ^26",
+    "prettier": "3.9.8",
     "publint": "0.3.24",
     "typescript": "7.0.2"
   },
   "scripts": {
-    "prepublishOnly": "yarn prettier:lint && yarn build",
+    "prepublishOnly": "npm run prettier:lint && npm run build",
     "clean": "rm -rf dist",
     "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-package-type.mjs cjs",
     "build:esm": "tsc -p tsconfig.esm.json && node scripts/write-package-type.mjs esm",
-    "build": "yarn build:cjs && yarn build:esm",
+    "build": "npm run build:cjs && npm run build:esm",
     "test:integration:cjs": "node test/integration/cjs.cjs",
     "test:integration:esm": "node test/integration/esm.mjs",
     "test:integration:deno": "deno run --allow-read test/integration/deno.ts && deno run --allow-read test/integration/deno-esm.ts",
-    "test:integration": "yarn test:integration:cjs && yarn test:integration:esm",
+    "test:integration": "npm run test:integration:cjs && npm run test:integration:esm",
     "test:unit": "node scripts/run-unit-tests.mjs",
     "prettier": "prettier --write src/**/*.ts",
     "prettier:lint": "prettier --list-different src/**/*.ts",
     "verify:pack": "npm pack --dry-run",
     "verify:publint": "publint",
     "verify:attw": "attw --pack .",
-    "verify:package": "yarn build && yarn verify:pack && yarn verify:publint && yarn verify:attw"
+    "verify:package": "npm run build && npm run verify:pack && npm run verify:publint && npm run verify:attw"
   },
   "keywords": [
     "ntp",
@@ -70,6 +70,14 @@
     "trailingComma": "es5"
   },
   "engines": {
-    "node": "^20 || ^22 || ^24 || ^25"
-  }
+    "node": "^22 || ^24 || ^26"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": ">=12.0.0",
+      "onFail": "error"
+    }
+  },
+  "packageManager": "npm@12.0.2"
 }
