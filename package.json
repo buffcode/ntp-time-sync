@@ -21,7 +21,7 @@
   },
   "sideEffects": false,
   "dependencies": {
-    "ntp-packet-parser": "^0.6.1"
+    "ntp-packet-parser": "^0.7.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
